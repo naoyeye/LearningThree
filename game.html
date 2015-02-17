@@ -1,0 +1,1122 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>无标题文档</title>
+<meta name='viewport' content='width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1, user-scalable=no'>
+<style type="text/css">
+#test {
+    /*width:25px;*/
+}
+
+/*.t {
+    width: 10px;
+    height: 10px;
+    border: 1px solid #c00;
+    float: left;
+}*/
+
+body {
+    margin: 0 auto;
+    width: 100%;
+    height: 100%;
+}
+
+/*游戏相关*/
+#startGame {
+
+}
+
+#lines {
+
+}
+
+#level {
+
+}
+
+#time {
+
+}
+
+#game_over {
+    display: none;
+}
+
+/*俄罗斯方块实体类*/
+#tetris-area {
+    width: auto;
+    height: auto;
+    background: blue;
+}
+
+/*JS生成的CLASS,俄罗斯方块实体*/
+#tetris .block0,
+#tetris .block1,
+#tetris .block2,
+#tetris .block3,
+#tetris .block4,
+#tetris .block5,
+#tetris .block6 {
+    z-index: 1000;
+    font-size: 10px;
+    line-height: 1em;
+    position: absolute;
+    width: 13px;
+    height: 13px;
+    border: 0.5px solid red;
+    background: #000;
+}
+</style>
+
+<script src="jquery.js"></script>
+<script type="text/javascript">
+//2维数组，用来存放俄罗斯方块的坐标
+
+var xYAxis=[];
+xYAxis.push([1,2],[3,4]);
+
+//alert(xYAxis[1][0]);
+
+//复制节点
+/*$(document).ready(function(e) {
+
+    for(i=0;i<2;i++)
+    {
+        if(i==1)
+        {
+          // $("#test").append("<br>");  //加上换行符
+        }
+        $(".t").clone().appendTo("#test");
+    }
+
+    //动态得到test（container）的宽度，包含两边的边框BORDER
+    $("#test").width(($(".t").width()+2)*2+1);
+});
+*/
+//获得区域的横坐标和纵坐标
+function getArea(x,y,unit,id)
+{
+    this.x=x;
+    this.y=y;
+    this.unit=unit; //每个单元的大小，单位为像素
+    this.el=document.getElementById(id); //得到ID对象
+
+    this.board=[]; //面板，即在区域范围内的元素（俄罗斯方块）
+
+    /*创建2D范围矩阵*/
+    for(var y=0;y<this.y;y++)
+    {
+        this.board.push(new Array());
+        for(var x=0;x<this.x;x++)
+        {
+            this.board[y].push(0);
+        }
+    }
+
+    /*从2D矩阵中消除元素*/
+    this.destroy=function()
+    {
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                if(this.board[y][x])
+                {
+                    this.el.removeChild(this.board[y][x]);
+                    this.board[y][x]=0;
+                }
+            }
+        }
+
+    }
+
+    //添加元素
+    this.addElement=function(el)
+    {
+        //得到起始元素的X开始坐标和Y开始坐标的位置（错误）
+        //得到X坐标的下落次数，和Y轴的左右移动的次数
+        var xBegin=parseInt(el.offsetLeft/unit);
+        var yBegin=parseInt(el.offsetTop/unit);
+
+        if(xBegin>=0&&xBegin<=this.x&&yBegin>=0&&yBegin<=this.y)
+        {
+                this.board[yBegin][xBegin]=el; //确定元素的位置
+        }
+
+    }
+
+    //消掉所有的行
+    this.removeFullLines=function()
+    {
+        var lines=0;
+        for(var i=this.y-1;i>0;i--)
+        {
+            if(this.linesRelated(i))
+            {
+                this.removeLines(i);
+                lines++;
+                y++;
+            }
+        }
+        return lines; //返回线条
+    }
+
+    //和线性有关的东西（判断是否满了）
+    this.linesRelated=function(y)
+    {
+        for(var x=0;x<this.x;x++)
+        {
+                if(!this.board[y][x]){return false;}     //如果不为0的话，那么菜返回FALSE
+        }
+
+        return true;
+    };
+
+    //去掉行
+    this.removeLines=function(y)
+    {
+        for(var x=0;x<this.x;x++)
+        {
+            this.el.removeChild(this.board[y][x]);
+            this.board[y][x]=0;
+        }
+        y--;
+        for(;y>0;y--)
+        {
+            /*今天暂时写到这里*/
+            /*继续于2014-12-21*/
+            for(var x=0;x<this.x;x++)
+            {
+                if(this.board[y][x])
+                {
+                    var el=this.board[y][x];
+                    el.style.top=el.offsetTop+this.unit+"px";
+                    this.board[y+1][x]=el;
+                    this.board[y][x]=0;
+                }
+            }
+        }
+    };
+
+    //活动区域
+    this.getBlock=function(y,x)
+    {
+        if(y<0){return 0;}
+        if(y<this.y&&x<this.x)
+        {
+            return this.board[y][x];
+        }
+        else
+        {
+            throw "Area get failed!";
+        }
+
+    }
+}
+
+/*俄罗斯方块实体类*/
+function Tetris()
+{
+    var self =this; //自身
+    var operate=null;
+
+    this.area=null;
+    this.operate=null; //操作
+
+    this.status=new State(); //新建状态
+    /*初始化X,Y,单元为5或者20*/
+    this.x=20;
+    this.y=20;
+    this.unit=20;
+
+    this.running=null; //是否在运行中
+
+    //俄罗斯方块实体ID
+    this.id="tempid";
+
+    /*开始的时候暂停是FALSE的*/
+    this.paused=false;
+
+    //开始游戏
+    this.start=function()
+    {
+        self.reset(); //重新开始游戏
+        self.status.start();
+
+        this.area=new getArea(this.x,this.y,this.unit,"tetris-area"); //获得Area对象    ,其中TEMPID是俄罗斯方块实体类ID
+        this.operate=new OperateTetris(this.area,self);
+
+        //是否可以替换
+        if(this.operate.mayPlace())
+        {
+            //alert(1);
+            this.operate.place();
+        }
+        else
+        {
+            self.gameOver();
+        }
+
+
+    }
+
+    //游戏结束
+    this.gameOver=function()
+    {
+        self.status.stopGame(); //停止游戏
+        self.operate.stopGame(); //操作类停止游戏
+
+    }
+
+    /*重置游戏*/
+    this.reset=function()
+    {
+        if(this.operate)
+        {
+            self.operate.destroy(); //重新开始
+            self.operate=null;
+        }
+        if(self.area)
+        {
+            self.area.destroy();
+            self.area=null;
+        }
+        //隐藏游戏结束
+        document.getElementById("game_over").style.display="none";
+        document.getElementById("next_operate").style.display="block"; //下一个操作
+        document.getElementById("keys_Press").style.display="block"; //显示按键
+
+        self.status.reset();
+        self.paused=false;
+
+        document.getElementById("tetris-pause").style.display="block";  //暂停按钮
+
+    }
+
+    /*暂停游戏*/
+    this.pause=function()
+    {
+        if(self.operate==null)
+        {
+            return ;
+        }
+        if(self.paused)
+        {
+            self.operate.running=true;
+            /*这里还没写完2014-12-22*/
+        }
+        else
+        {
+
+        }
+
+    }
+
+    //上
+    this.up=function()
+    {
+        if(self.operate&&self.operate.isRunning()&&!self.operate.isStopped())
+        {
+            if(self.operate.mayRotate())
+            {
+                self.operate.rotate();
+                self.status.setActions(self.status.getActions()+1);
+            }
+        }
+    }
+
+    //下
+    this.down=function()
+    {
+        if(self.operate&&self.operate.isRunning()&&!self.operate.isStopped())
+        {
+            if(self.operate.mayMoveDown())
+            {
+                self.operate.moveDown();
+                self.status.setActions(self.status.getActions()+1);
+            }
+        }
+    }
+
+    //左
+    this.left=function()
+    {
+        if(self.operate&&self.operate.isRunning()&&!self.operate.isStopped())
+        {
+            if(self.operate.mayMoveLeft())
+            {
+                self.operate.moveLeft();
+                self.status.setActions(self.status.getActions()+1);
+            }
+
+        }
+    }
+
+    //右
+    this.right=function()
+    {
+        if(self.operate&&self.operate.isRunning()&&!self.operate.isStopped())
+        {
+            if(self.operate.mayMoveRight())
+            {
+                self.operate.moveRight();
+                self.status.setActions(self.status.getActions()+1);
+            }
+        }
+    }
+
+
+
+    //开始游戏
+    document.getElementById("startGame").onclick=function(){self.start()};
+//} //Tetris是一个整体类，里面包含了很多方法。
+    var keyboard=new Keyboard(); //创建键盘类实体
+    keyboard.set(keyboard.n,this.start);
+    keyboard.set(keyboard.up,this.up);
+    keyboard.set(keyboard.down,this.down);
+    keyboard.set(keyboard.left,this.left);
+    keyboard.set(keyboard.right,this.right);
+
+    document.onkeydown=keyboard.event; //按下按键按钮的事件
+
+
+/*键盘操作方法*/
+function Keyboard()
+{
+    this.up=38; //上
+    this.down=40; //下
+    this.left=37; //左
+    this.right=39;  //右
+
+    this.n=78;
+    this.p=80;
+    this.r=82;
+    this.space=32; //空格
+    this.f12=123;
+    this.escape=27; //退格键
+
+    this.keys=[];  //键位集合
+    this.funcs=[];
+    var self=this;
+
+    //设置键位
+    this.set=function(key,func)
+    {
+        this.keys.push(key);
+        this.funcs.push(func);
+    }
+
+    this.event=function(e)
+    {
+        if(!e){e=window.event;}
+        for(var i=0;i<self.keys.length;i++)
+        {
+            if(e.keyCode==self.keys[i])
+            {
+                self.funcs[i]();
+            }
+        }
+    }
+
+
+}
+
+
+//具体的操作类
+function OperateTetris(area,tetris)
+{
+    var self=this; //当前对象
+    this.area=area;
+    this.tetris=tetris;
+
+    this.types=null; //方块的类型；
+    this.nextType=null; //下一个类型
+
+    //初始化X和Y
+    this.x=null;
+    this.y=null;
+    this.position=0; //初始位置
+
+    this.board=[]; //用来填充HTML元素的
+    this.elements=[];
+    this.nextElements=[]; //下一个元素
+
+    this.running=null; //是否在运行中
+    this.stopped=null; //是否停止
+
+    this.fallDownId=null; //往下掉落的
+    this.speed=null; //速度
+
+    /*方块的组合方式，用数组进行组合（二维数组）
+    用0,1表示是否有方块存在，如果是0：不存在，1：存在，
+    以下的逻辑就可以非常的清楚了。*/
+    this.blockComplex=[
+    [
+    [0,0,1],[1,1,1],[0,0,0]  //_|
+    ],
+
+    [
+    [1,0,0],[1,1,1],[0,0,0] //L
+    ],
+
+    [
+    [0,1,0],[1,1,1],[0,0,0]  //T
+    ],
+
+    [
+    [0,0,0],[1,1,1],[0,0,0] //--
+    ],
+
+    [
+    [0,0,0],[0,1,1],[0,1,1] //口
+    ],
+
+    [
+    [0,1,1],[0,1,0],[1,1,0] //Z
+    ]
+    ];
+
+    this.stopGame=function()
+    {
+        this.running=false;
+    }
+
+    /*一连串的GETTER方法
+    分别是速度，X,Y轴，运行和停止的GETTER方法*/
+    this.getSpeed=function()
+    {
+        return this.speed;
+    }
+
+    this.getX=function()
+    {
+        return this.x;
+    }
+
+    this.getY=function()
+    {
+        return this.y;
+    }
+
+    this.isRunning=function()
+    {
+        return this.running;
+    }
+
+    this.isStopped=function()
+    {
+        return this.stopped;
+    }
+
+    //重置(初始化)
+    this.reset=function()
+    {
+        if(this.fallDownId)
+        {
+            clearTimeout(this.fallDownId); //下落的时候去掉时间间隔
+        }
+        this.types=this.nextType;
+        this.nextType=random(this.blockComplex.length);
+
+
+        this.position=0;
+        this.board=[];
+        this.elements=[];
+        this.x=null;
+        this.y=null;
+        this.speed=200; //速度暂定为51
+
+        this.running=false;
+        this.stopped=false;
+
+        //移除下一个元素
+        for(var i=0;i<this.nextElements.length;i++)
+        {
+            document.getElementById("next_operate").removeChild(this.nextElements[i]);
+        }
+
+        this.nextElements=[]; //下一个元素
+
+
+
+
+    }
+    //下一个类型，随机抽取
+    this.nextType=random(this.blockComplex.length);
+
+    //重置
+    this.reset();
+
+    /*判断是否替换*/
+    this.mayPlace=function()
+    {
+        var isOperate=this.blockComplex[this.types];
+
+        /*area开始的坐标原点*/
+        var areaStartX=parseInt(this.area.x-isOperate[0].length);
+        var areaStartY=1;
+        var lineFound=false;
+        var lines=0;
+        for(var y=isOperate.length-1;y>=0;y--)
+        {
+            for(var x=0;x<isOperate[y].length;x++)
+            {
+                if(isOperate[y][x])
+                {
+                    lineFound=true;
+                    if(this.area.getBlock(areaStartY,areaStartX+x)) {return false;}
+                }
+            }
+
+            if(lineFound)
+            {
+                lines++;
+            }
+            if(areaStartY-lines<0)
+            {
+                break;
+            }
+
+        }
+
+        return true;
+    }
+
+    /*替换*/
+    this.place=function()
+    {
+        //初始化
+        var operate=this.blockComplex[this.types];
+
+
+        //区域开始X轴的位置
+        var AreaXStartPos=parseInt(this.area.x-operate[0].length);
+
+        //区域开始Y轴的位置
+        //var AreaYStartPos=parseInt(this.area.y-operate[0]);
+        var AreaYStartPos=1; //因为X轴的位置可能变化，而Y轴总是从最上面下来的，所以是1
+
+        this.x=AreaXStartPos; //把新的位置赋给X；
+        this.y=AreaYStartPos; //把新的位置赋给y;
+
+        //构建空对象，并存入BOARD
+        /*y:行，x:列*/
+
+        //alert(operate[0].length+" "+operate.length);
+        this.board=this.createEmpty(operate[0].length,operate.length);
+
+        /*线条，往下掉落，初始化*/
+        var lines=0;
+        var foundLines=false;
+
+        //循环遍历,先遍历行，每一行再来遍历列
+        for(var yAxis=operate.length-1;yAxis>=0;yAxis--)
+        {
+            for(var xAxis=0;xAxis<=operate[yAxis].length;xAxis++)
+            {
+                if(operate[yAxis][xAxis])
+                {
+                    var el=document.createElement("div");
+                    el.className="block"+this.types; //确定这个元素的CLASSNAME
+
+                    //确定左边距和上边距
+                    el.style.left=(this.x+xAxis)*this.area.unit+"px";
+                    el.style.top=(this.y+yAxis)*this.area.unit+"px";
+                    this.area.el.appendChild(el); //这个EL去APPEND主要的EL。
+
+                    this.board[yAxis][xAxis]=el;
+                    this.elements.push(el); //推入elements中
+
+                }
+            }
+
+            /*个人感觉这个功能应该是加速往下掉落的方法？不明觉厉*/
+            if(lines)
+            {
+                yAxis--;
+            }
+
+            if(foundLines)
+            {
+                lines++;
+            }
+
+        }
+            this.running=true;
+            this.fallDownId=setTimeout(this.fallDown,this.speed); //间隔时间，掉落下的
+
+            var nextOperate=this.blockComplex[this.nextType];
+            for(var y=0;y<nextOperate.length;y++)
+            {
+                for(var x=0;x<nextOperate[y].length;x++)
+                {
+                    //创建元素
+                    if(nextOperate[y][x])
+                    {
+                        /*先写到这里：2014-12-22*/
+                        var el=document.createElement("div");
+                        el.className="block"+this.nextType;
+                        el.style.left=(x*this.area.unit)+"px";
+                        el.style.top=(y*this.area.unit)+"px";
+
+                        document.getElementById("next_operate").appendChild(el);
+                        this.nextElements.push(el); //下一个元素
+
+                    }
+                }
+            }
+
+    }
+
+    //创建空对象,即所有的都为0的对象,并返回对象
+    this.createEmpty=function(x,y)
+    {
+            var elements=[];
+            for(var y2=0;y2<y;y2++)
+            {
+
+                elements.push(new Array());
+
+                for(var x2=0;x2<x;x2++)
+                {
+                    elements[y2].push(0);
+                }
+
+            }
+            return elements;
+    }
+
+    //下落(这是一个最关键的函数，决定了这个游戏的成败)
+    this.fallDown=function()
+    {
+        if(self.isRunning())
+        {
+
+                if(self.mayMoveDown())
+                {
+                    self.moveDown();
+                    self.fallDownId=setTimeout(self.fallDown,self.speed); //下落的间隔时间
+
+                }
+                else
+                {
+                    for(var i=0;i<self.elements.length;i++)
+                    {
+                        self.area.addElement(self.elements[i]);
+                    }
+                    var lines=self.area.removeFullLines();
+                    if(lines)
+                    {
+                        /*这里到时候再写*/
+                        self.tetris.status.setLines(self.tetris.status.getLines()+lines);
+                    }
+
+                    self.reset();
+                    if(self.mayPlace())
+                    {
+                        self.place();
+                    }
+                    else
+                    {
+                        self.tetris.gameOver();
+                    }
+                }
+        }
+        else
+        {
+
+        }
+
+    }
+
+
+    //是否可以旋转俄罗斯方块
+    this.mayRotate=function()
+    {
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                if(this.board[y][x])
+                {
+
+                    // /新的X,Y的值/
+                    var newY=this.getY()+this.board.length-1-x;
+                    var newX=this.getX()+y;
+
+                    if(newY>this.area.y){return false;}
+                    if(newX<0){return false;}
+                    if(newX>=this.area.x){return false;}
+                    if(this.area.getBlock(newY,newX)){return false;}     //获得区域
+
+                }
+            }
+        }
+        return true;
+    }
+
+    //旋转俄罗斯方块
+    this.rotate=function()
+    {
+        var puzzle=this.createEmpty(this.board.length,this.board[0].length); //创建一个空的矩阵
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                //旋转，X轴和Y轴的坐标互换
+                if(this.board[y][x])
+                {
+                    var newY=puzzle.length-1-x;
+                    var newX=y;
+                    var el=this.board[y][x]; //旋转前的对象
+
+                    var moveY=newY-y;
+                    var moveX=newX-x;
+
+                    //长度是offsetTop或left加上偏移量
+                    el.style.left=el.offsetLeft+(moveX*this.area.unit)+"px";
+                    el.style.top=el.offsetTop+(moveY*this.area.unit)+"px";
+
+                    puzzle[newY][newX]=el;
+
+                }
+            }
+        }
+        this.board=puzzle;
+    }
+
+    //下落方法（进行判断）
+    this.mayMoveDown=function()
+    {
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                if(this.board[y][x])
+                {
+                    if(this.getY()+y+1>=this.area.y){this.stopGame=true;return false;}  //如果触底，那么就停止游戏
+                    if(this.area.getBlock(this.getY()+y+1,this.getX()+x)){this.stopGame=true;return false;}
+
+
+                }
+            }
+        }
+
+        return true;
+    }
+
+    //下落
+    this.moveDown=function()
+    {
+        //用一个循环去控制下落
+        for(var i=0;i<this.elements.length;i++)
+        {
+            this.elements[i].style.top=this.elements[i].offsetTop+this.area.unit+"px";
+
+        }
+        this.y++;
+    }
+
+    this.mayMoveLeft=function()
+    {
+        /*可以向左移动（判断方法）*/
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                if(this.board[y][x])
+                {
+                    if(this.getX()-1+x<0)
+                    {
+                        return false;
+                    }
+
+
+                    if(this.area.getBlock(this.getY()+y,this.getX()+x-1)){return false;}
+
+                }
+            }
+        }
+        return true;
+
+    }
+
+    //向左移动
+    this.moveLeft=function()
+    {
+        /*向左移动（判断方法）*/
+        for(var i=0;i<this.elements.length;i++)
+        {
+            this.elements[i].style.left=this.elements[i].offsetLeft-this.area.unit+"px";
+        }
+        this.x--;
+
+    }
+
+    /*是否可以向右移动*/
+    this.mayMoveRight=function()
+    {
+        for(var y=0;y<this.board.length;y++)
+        {
+            for(var x=0;x<this.board[y].length;x++)
+            {
+                if(this.board[y][x])
+                {
+                    if(this.getX()+1+x>=this.area.x){return false;}
+                    if(this.area.getBlock(this.getY()+y,this.getX()+x+1)){return false;}
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /*向右移动*/
+    this.moveRight=function()
+    {
+        for(var i=0;i<this.elements.length;i++)
+        {
+            this.elements[i].style.left=this.elements[i].offsetLeft+this.area.unit+"px";
+        }
+        this.x++;
+    }
+
+    /*摧毁方法*/
+    this.destroy=function()
+    {
+        for(var i=0;i<this.elements.length;i++)
+        {
+            this.area.el.removeChild(this.elements[i]);
+
+        }
+        this.elements=[];
+        this.board=[];
+        this.reset();
+    }
+}
+
+/*俄罗斯方块状态*/
+function State()
+{
+
+
+    /*初始化*/
+    this.level;
+    this.time;
+    this.score;
+    this.opeate;
+    this.lines;
+
+    // this.apm; //不明觉厉
+
+    this.actions; //动作
+
+    this.el=
+    {
+        "lines":document.getElementById("lines"),
+        "level":document.getElementById("level"),
+        "time":document.getElementById("time"),
+        // "apm":document.getElementById("apm"),
+        "operate":document.getElementById("operate")
+    }
+
+    this.timeId=null;
+    var self=this;
+
+    //开始游戏
+    this.start=function()
+    {
+        this.reset(); //重置
+        this.timeId=setInterval(this.incTime,1500);
+
+    }
+
+    /*停止游戏*/
+    this.stopGame=function()
+    {
+        if(this.timeId)
+        {
+            clearInterval(this.timeId);
+        }
+
+    }
+
+    //重置
+    this.reset=function()
+    {
+        this.stopGame();
+        this.level=1;
+        this.time=0;
+        this.score=0
+        this.opeate=0;
+        this.lines=0;
+
+        /*以后可能加INNERHTML*/
+        this.el.level=this.level;
+        this.el.time=this.time;
+        this.el.score=this.score;
+        this.el.operate=this.opeate;
+        this.el.lines=this.lines;
+
+    }
+
+    //和SetInterval有关
+    this.incTime=function()
+    {
+        self.time++;
+        self.el.time.innerHTML=self.time; //设置时间
+        self.actions=parseInt(self.actions/self.time)*60;
+        // this.el.apm.innerHTML=self.apm;
+
+    }
+
+    /*设置分数*/
+    this.setScore=function(i)
+    {
+        this.score==i;
+        this.el.score.innerHTML=this.score;
+    }
+
+    /*设置等级*/
+    this.setLevel=function(i)
+    {
+        this.level=i;
+        this.el.level.innerHTML=this.level; //设置内部HTML
+    };
+
+    this.getLevel=function()
+    {
+        return this.level;
+    }
+
+    //线条的SETTER方法
+    this.setLines=function(i)
+    {
+        this.lines=i;
+        this.el.lines.innerHTML=this.lines;
+    }
+
+    this.getLines=function()
+    {
+        return this.lines;
+    }
+
+    //设置动作
+    this.setActions=function(i)
+    {
+        this.actions=i;
+        //this.el.actions.innerHTML=this.actions;
+    }
+
+    this.getActions=function()
+    {
+        return this.actions;
+    }
+
+    // //设置apm
+    // this.setApm=function(i)
+    // {
+    //     this.apm=i;
+    //     this.el.apm.innerHTML=this.apm;
+    // }
+
+    // this.getApm=function()
+    // {
+    //     return this.apm;
+    // }
+
+    //控制下落操作的类
+    this.setOperate=function(i)
+    {
+        this.opeate=i;
+        this.el.operate=this.operate;
+    }
+
+    this.getOperate=function()
+    {
+        return this.opeate;
+    }
+
+
+}
+
+//随机数,产生1~6的
+function random(i)
+{
+    return Math.floor(Math.random()*i);
+}
+
+}  /*Tetris是一个整体类，里面包含了很多方法*/
+</script>
+
+</head>
+
+<body>
+
+    <div id="tetris">
+    <!--正方形 -->
+<div id="test">
+    <div class="t"></div>
+</div>
+
+<!--长方形-->
+<div id="rect">
+    <div class="r">
+
+    </div>
+</div>
+
+<!-- 俄罗斯方块实体类-->
+<div id="tetris-area">
+
+</div>
+
+<!-- 下一个操作-->
+<div id="next_operate"></div>
+
+<!--游戏结束-->
+<div id="game_over">Game Over</div>
+
+<!-- 按键 -->
+<div id="keys_Press">
+
+
+</div>
+
+<input type="button" id="startGame" value="Start" />
+
+<!--线条 -->
+<div id="lines"></div>
+
+<!--等级 -->
+<div id="level"></div>
+
+<!--apm(不知道有什么作用) -->
+<!-- <div id="apm"></div> -->
+
+<!--时间 -->
+<div id="time"></div>
+
+<!--控制下落操作 -->
+<div id="operate"></div>
+
+<!-- 功能键(暂停)-->
+<div id="tetris-pause">
+
+</div>
+
+<!-- 功能键（继续）-->
+<div id="tetris-resume" style="display:none">
+
+</div>
+</div>
+<script>
+    var tx=new Tetris();
+    tx.x=12;
+    tx.y=22;
+    tx.unit=14;
+    //tx.start(); //开始游戏
+</script>
+
+</body>
+</html>
