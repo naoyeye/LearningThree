@@ -4,7 +4,7 @@
 * @Author: Jiyun
 * @Date:   2015-02-16 14:14:02
 * @Last Modified by:   Jiyun
-* @Last Modified time: 2015-02-18 13:53:38
+* @Last Modified time: 2015-02-18 14:18:53
 */
 
 
@@ -49,7 +49,7 @@ function initThree() {
     renderer = new THREE.WebGLRenderer({
         // antialias : true
     });
-    renderer.setSize(600, 600);
+    renderer.setSize(window.innerWidth, window.innerHeight);
     document.getElementById('canvas-frame').appendChild(renderer.domElement);
     renderer.setClearColor(0x6cd8f5, 1.0);
     renderer.shadowMapEnabled = true;
@@ -76,7 +76,7 @@ function initCamera() {
     //     z : 0
     // });
 
-    camera = new THREE.PerspectiveCamera(75, 100 / 100, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     // camera.position.set(0, 0, 5);
     camera.position.set(0, 0.5, 4);
 
@@ -348,6 +348,8 @@ function threeStart() {
     render();
 
     isRunning = true;
+
+    window.addEventListener('resize', onWindowResize, false);
 }
 
 function stop() {
@@ -360,6 +362,12 @@ function stop() {
 }
 
 threeStart();
+
+function onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
 
 document.addEventListener('mousedown', function (e) {
     console.log('e.target', e.target);
