@@ -1,10 +1,10 @@
-/*global THREE , requestAnimationFrame, Stats, cancelAnimationFrame*/
+/*global THREE , requestAnimationFrame, Stats, cancelAnimationFrame, clock, dat*/
 
 /*
 * @Author: Jiyun
 * @Date:   2015-02-16 14:14:02
 * @Last Modified by:   Jiyun
-* @Last Modified time: 2015-02-18 14:18:53
+* @Last Modified time: 2015-02-18 19:01:59
 */
 
 
@@ -39,6 +39,7 @@ var width;
 var height;
 
 var isRunning = false;
+var control = {};
 
 var ballMesh = null;
 var ballRadius = 0.5;
@@ -53,6 +54,14 @@ function initThree() {
     document.getElementById('canvas-frame').appendChild(renderer.domElement);
     renderer.setClearColor(0x6cd8f5, 1.0);
     renderer.shadowMapEnabled = true;
+}
+
+function setupCanvas() {
+    var canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    clock(canvas);
+    return canvas;
 }
 
 var scene;
@@ -78,7 +87,7 @@ function initCamera() {
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     // camera.position.set(0, 0, 5);
-    camera.position.set(0, 0.5, 4);
+    camera.position.set(0, 1, 4);
 
     // camera = new THREE.OrthographicCamera(-5, 5, 3.75, -3.75, 0.2, 100);
     // camera.position.set(0, 0, 10);
@@ -178,11 +187,18 @@ function initObject() {
 
     // 材质
     THREE.ImageUtils.crossOrigin = '';
-    var texture = THREE.ImageUtils.loadTexture('http://perber.qiniudn.com/dWw1NjI1Mjc0My0xNzkuanBn_1424184138603', {}, function () {
+    var imageTexture = THREE.ImageUtils.loadTexture('http://perber.qiniudn.com/dWw1NjI1Mjc0My0xNzkuanBn_1424184138603', {}, function () {
         renderer.render(scene, camera);
     });
 
+    var canvas = setupCanvas();
+    // document.getElementById('canvas-frame').appendChild(canvas);
+    // console.log(canvas);
 
+    var texture = new THREE.Texture(canvas, {}, function () {
+        renderer.render(scene, camera);
+    });
+    // console.log('texture', texture);
     // var material = new THREE.MeshLambertMaterial({
     var material = new THREE.MeshPhongMaterial({
         // color: 0x2b37f4,
@@ -192,7 +208,7 @@ function initObject() {
         // wireframe: true,
         // wireframe: false
         map: texture,
-        ambient: 0x808080,
+        // ambient: 0x808080,
         specular: 0xFFFFFF,
         shininess: 1000,
         shading: THREE.FlatShading,
@@ -208,7 +224,21 @@ function initObject() {
     // 小球
     // var smallBall = new THREE.SphereGeometry(0.5, 120, 120);
     var smallBall = new THREE.TorusGeometry(0.7, 0.2, 50, 50);
-    smallBallMesh = new THREE.Mesh(smallBall, material);
+    // var smallBallMaterial = new THREE.MeshLambertMaterial({
+    var smallBallMaterial = new THREE.MeshPhongMaterial({
+        color: 0xffee2d,
+        emissive: 0xfc9816,
+        specular: 0xff0000,
+        // shininess: 1000,
+        // wireframe: true,
+        // wireframe: false
+        map: imageTexture,
+        ambient: 0xcc0000,
+        // specular: 0xffffff,
+        shininess: 1000,
+        shading: THREE.FlatShading,
+    });
+    smallBallMesh = new THREE.Mesh(smallBall, smallBallMaterial);
     // smallBallMesh.position.x = Math.PI * 2;
     // smallBallMesh.position.y = 3;
     smallBallMesh.rotation.y = 1;
@@ -281,22 +311,22 @@ function initLight() {
     // var ambient = new THREE.AmbientLight(0x343434);
     // scene.add(ambient);
 
-    light = new THREE.SpotLight(0xffff00, 0, 100, Math.PI / 10, 1000);
-    light.position.set(1, 5, 10);
-    light.target = cube;
-    light.castShadow = true;
+    // light = new THREE.SpotLight(0xffff00, 0, 100, Math.PI / 10, 1000);
+    // light.position.set(1, 5, 10);
+    // light.target = cube;
+    // light.castShadow = true;
 
-    light.shadowCameraNear = 4;
-    light.shadowCameraFar = 34;
-    light.shadowCameraFov = 60;
-    // light.shadowCameraVisible = false;
-    // light.shadowCameraVisible = true; // 是否显示参考线
+    // light.shadowCameraNear = 4;
+    // light.shadowCameraFar = 34;
+    // light.shadowCameraFov = 60;
+    // // light.shadowCameraVisible = false;
+    // // light.shadowCameraVisible = true; // 是否显示参考线
 
-    light.shadowMapWidth = 4048;
-    light.shadowMapHeight = 4048;
-    light.shadowDarkness = 0.3;
+    // light.shadowMapWidth = 4048;
+    // light.shadowMapHeight = 4048;
+    // light.shadowDarkness = 0.3;
 
-    // renderer.shadowMapSoft = true;
+    // // renderer.shadowMapSoft = true;
     // scene.add(light);
 }
 
@@ -304,39 +334,45 @@ var alpha = 0;
 function render() {
     stat.begin();
 
-    renderer.clear();
+    // // renderer.clear();
     renderer.render(scene, camera);
 
-    cube.rotation.x += 0.02;
-    cube.rotation.y += 0.02;
-    alpha += 0.01;
+    camera.position.set(0, 1, control.cameraPosition);
+
+    cube.rotation.x += control.rotationSpeed;
+    cube.rotation.y += control.rotationSpeed;
+    alpha += control.alpha;
     if (alpha > Math.PI * 2) {
         alpha -= Math.PI * 2;
     }
     cube.position.set(2 * Math.cos(alpha), 0, 1.2 * Math.sin(alpha));
 
-    ballMesh.rotation.x += 0.01;
-    ballMesh.rotation.y += 0.01;
+    cube.material.map.needsUpdate = true;
+
+    ballMesh.rotation.x += control.rotationSpeed;
+    ballMesh.rotation.y += control.rotationSpeed;
     ballMesh.position.set(2 * Math.cos(alpha), 0, 1.2 * Math.sin(alpha));
 
-    smallBallMesh.rotation.x += 0.01;
-    smallBallMesh.rotation.y += 0.01;
+    smallBallMesh.rotation.x += control.rotationSpeed;
+    smallBallMesh.rotation.y += control.rotationSpeed;
     smallBallMesh.position.set(4 * Math.sin(alpha), 3, -1);
 
-    // zhuziMesh.rotation.x += 0.02;
-    zhuziMesh.rotation.y += 0.01;
-    // cube.scale.set(1, 1.2, 3);
+    zhuziMesh.rotation.x += control.rotationSpeed;
+    zhuziMesh.rotation.y += control.rotationSpeed;
+    // zhuziMesh.scale.set(1, 1.2, 3);
 
     id = requestAnimationFrame(render);
+
     stat.end();
 }
 
 var stat;
+var fun;
 function threeStart() {
 
     stat = new Stats();
     stat.domElement.style.position = 'absolute';
-    stat.domElement.style.right = '0px';
+    stat.domElement.style.left = '0px';
     stat.domElement.style.top = '0px';
     document.body.appendChild(stat.domElement);
 
@@ -345,11 +381,22 @@ function threeStart() {
     initScene();
     initObject();
     initLight();
-    render();
+
+    control = {
+        rotationSpeed: 0.005,
+        scale: 1,
+        cameraPosition: 4,
+        alpha: 0.01
+    };
+
+    addControls(control);
 
     isRunning = true;
 
     window.addEventListener('resize', onWindowResize, false);
+
+    render();
+
 }
 
 function stop() {
@@ -361,6 +408,13 @@ function stop() {
     }
 }
 
+function addControls(controlObject) {
+    var gui = new dat.GUI();
+    gui.add(controlObject, 'rotationSpeed', -0.1, 0.1);
+    gui.add(controlObject, 'cameraPosition', 1, 8);
+    gui.add(controlObject, 'alpha', 0.005, 0.1);
+}
+
 threeStart();
 
 function onWindowResize() {
@@ -369,24 +423,24 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-document.addEventListener('mousedown', function (e) {
-    console.log('e.target', e.target);
-    // if (e.target === self.elem || (e.target.parentNode && e.target.parentNode === self.elem) || (e.target.parentNode.parentNode && e.target.parentNode.parentNode === self.elem)) {
-    if (typeof e.stopPropagation !== 'undefined') {
-        e.stopPropagation();
-    } else {
-        e.cancelBubble = true;
-    }
-    e.preventDefault();
-    // self.pointerDown(e);
-    if (isRunning) {
-        stop();
-    } else {
-        requestAnimationFrame(render);
-        isRunning = true;
-    }
-    // }
-}, false);
+// document.addEventListener('mousedown', function (e) {
+//     console.log('e.target', e.target);
+//     // if (e.target === self.elem || (e.target.parentNode && e.target.parentNode === self.elem) || (e.target.parentNode.parentNode && e.target.parentNode.parentNode === self.elem)) {
+//     if (typeof e.stopPropagation !== 'undefined') {
+//         e.stopPropagation();
+//     } else {
+//         e.cancelBubble = true;
+//     }
+//     e.preventDefault();
+//     // self.pointerDown(e);
+//     if (isRunning) {
+//         stop();
+//     } else {
+//         requestAnimationFrame(render);
+//         isRunning = true;
+//     }
+//     // }
+// }, false);
 
 
 
