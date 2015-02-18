@@ -30,6 +30,8 @@ var renderer;
 var width;
 var height;
 
+var isRunning = false;
+
 var ballMesh = null;
 var ballRadius = 0.5;
 
@@ -41,7 +43,8 @@ function initThree() {
     });
     renderer.setSize(600, 600);
     document.getElementById('canvas-frame').appendChild(renderer.domElement);
-    renderer.setClearColor(0x121212, 1.0);
+    renderer.setClearColor(0x6cd8f5, 1.0);
+    renderer.shadowMapEnabled = true;
 }
 
 var scene;
@@ -65,9 +68,9 @@ function initCamera() {
     //     z : 0
     // });
 
-    camera = new THREE.PerspectiveCamera(85, 100 / 100, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, 100 / 100, 0.1, 1000);
     // camera.position.set(0, 0, 5);
-    camera.position.set(0, 0, 2);
+    camera.position.set(0, 0.5, 4);
 
     // camera = new THREE.OrthographicCamera(-5, 5, 3.75, -3.75, 0.2, 100);
     // camera.position.set(0, 0, 10);
@@ -80,22 +83,10 @@ function initCamera() {
 
 
 
-var light;
-function initLight() {
-    light = new THREE.DirectionalLight(0xFFFFFF, 1);
-    light.position.set(120, 150, 150);
-    scene.add(light);
-
-
-    // light = new THREE.DirectionalLight(0xFFE0E0, 0.5);
-    // light.position.set(-260, -550, -600);
-    // scene.add(light);
-}
-
-
 var cube;
 var line;
 var ballMesh;
+var smallBallMesh;
 var zhuziMesh;
 function initObject() {
     // 形状 geometry
@@ -114,6 +105,10 @@ function initObject() {
 
     // line = new THREE.Line(geometry, material, THREE.LinePieces);
     // scene.add(line);
+
+    var normalMaterial = new THREE.MeshNormalMaterial({
+        // wireframe: true
+    });
 
 
 
@@ -141,6 +136,7 @@ function initObject() {
     ballMesh.rotation.x = 1;
     scene.add(ballMesh);
 
+
     // 半圆体
     // var geometry = new THREE.SphereGeometry(3, 30, 30, 0, Math.PI * 3, Math.PI / 4, Math.PI / 6);
 
@@ -162,6 +158,7 @@ function initObject() {
     // zhuziMesh.position.y = 2;
     // zhuziMesh.scale.set(1, 1, 0.2);
     zhuziMesh.rotation.x = 0.6;
+    zhuziMesh.castShadow = true;
     scene.add(zhuziMesh);
     // camera.position.set(0, 0, 8);
 
@@ -173,7 +170,7 @@ function initObject() {
 
     // 材质
     THREE.ImageUtils.crossOrigin = '';
-    var texture = THREE.ImageUtils.loadTexture('http://i.imgur.com/3tU4Vig.jpg', {}, function () {
+    var texture = THREE.ImageUtils.loadTexture('http://perber.qiniudn.com/dWw1NjI1Mjc0My0xNzkuanBn_1424184138603', {}, function () {
         renderer.render(scene, camera);
     });
 
@@ -193,15 +190,32 @@ function initObject() {
         shading: THREE.FlatShading,
     });
 
-    // var material = new THREE.MeshNormalMaterial({
-    //     // wireframe: true
-    // });
-
     cube = new THREE.Mesh(geometry, material);
     // cube.position.x = -1.6;
     // cube.position.y = 2;
     cube.rotation.x = 0.6;
+    cube.castShadow = true;
     scene.add(cube);
+
+    // 小球
+    // var smallBall = new THREE.SphereGeometry(0.5, 120, 120);
+    var smallBall = new THREE.TorusGeometry(0.7, 0.2, 50, 50);
+    smallBallMesh = new THREE.Mesh(smallBall, material);
+    // smallBallMesh.position.x = Math.PI * 2;
+    // smallBallMesh.position.y = 3;
+    smallBallMesh.rotation.y = 1;
+    // smallBallMesh.position.set(1, 1, 1);
+    smallBallMesh.castShadow = true;
+    scene.add(smallBallMesh);
+
+    // 平面
+    var plane = new THREE.Mesh(new THREE.PlaneGeometry(20, 30, 16, 16),
+            new THREE.MeshLambertMaterial({color: 0xf7c4a0}));
+    plane.rotation.x = -Math.PI / 2.3;
+    plane.position.y = -2;
+    plane.position.z = -12;
+    plane.receiveShadow = true; // 接收投影
+    scene.add(plane);
 }
 
 // function initObject() {
@@ -225,18 +239,81 @@ function initObject() {
 //     scene.add(plane);
 // }
 
+var light;
+function initLight() {
+    light = new THREE.DirectionalLight(0xFFFFFF, 1);
+    light.position.set(100, 50, 100);
+    scene.add(light);
+
+    // light = new THREE.DirectionalLight(0xFFE0E0, 0.5);
+    // light.position.set(-260, -550, -600);
+    // scene.add(light);
+
+    // light = new THREE.PointLight(0xffffff, 2, 100);
+    // light.position.set(0, 1.5, 2);
+    // scene.add(light);
+
+    light = new THREE.SpotLight(0xffff00, 1, 100, Math.PI / 6, 25);
+    light.position.set(2, 5, 3);
+    // light.target.position.set(2, 2, 2);
+    light.target = smallBallMesh;
+    light.castShadow = true;
+    light.shadowCameraNear = 0.5;
+    light.shadowCameraFar = 45;
+    light.shadowCameraFov = 120;
+    // light.shadowCameraVisible = false;
+    // light.shadowCameraVisible = true; // 是否显示参考线
+
+    light.shadowMapWidth = 2000;
+    light.shadowMapHeight = 2000;
+    light.shadowDarkness = 0.3;
+    scene.add(light);
+
+    //  // ambient light
+    // var ambient = new THREE.AmbientLight(0x343434);
+    // scene.add(ambient);
+
+    light = new THREE.SpotLight(0xffff00, 0, 100, Math.PI / 10, 1000);
+    light.position.set(1, 5, 10);
+    light.target = cube;
+    light.castShadow = true;
+
+    light.shadowCameraNear = 4;
+    light.shadowCameraFar = 34;
+    light.shadowCameraFov = 60;
+    // light.shadowCameraVisible = false;
+    // light.shadowCameraVisible = true; // 是否显示参考线
+
+    light.shadowMapWidth = 4048;
+    light.shadowMapHeight = 4048;
+    light.shadowDarkness = 0.3;
+
+    // renderer.shadowMapSoft = true;
+    // scene.add(light);
+}
+
+var alpha = 0;
 function render() {
     stat.begin();
 
-    // renderer.clear();
+    renderer.clear();
     renderer.render(scene, camera);
 
-    // cube.rotation.x += 0.02;
-    cube.rotation.y += 0.01;
+    cube.rotation.x += 0.02;
+    cube.rotation.y += 0.02;
+    alpha += 0.01;
+    if (alpha > Math.PI * 2) {
+        alpha -= Math.PI * 2;
+    }
+    cube.position.set(2 * Math.cos(alpha), 0, 1.2 * Math.sin(alpha));
 
-    // ballMesh.rotation.x += 0.02;
+    ballMesh.rotation.x += 0.01;
     ballMesh.rotation.y += 0.01;
+    ballMesh.position.set(2 * Math.cos(alpha), 0, 1.2 * Math.sin(alpha));
 
+    smallBallMesh.rotation.x += 0.01;
+    smallBallMesh.rotation.y += 0.01;
+    smallBallMesh.position.set(4 * Math.sin(alpha), 3, -1);
 
     // zhuziMesh.rotation.x += 0.02;
     zhuziMesh.rotation.y += 0.01;
@@ -258,19 +335,42 @@ function threeStart() {
     initThree();
     initCamera();
     initScene();
-    initLight();
     initObject();
+    initLight();
     render();
+
+    isRunning = true;
 }
 
 function stop() {
     if (id !== null) {
         cancelAnimationFrame(id);
         id = null;
+
+        isRunning = false;
     }
 }
 
 threeStart();
+
+document.addEventListener('mousedown', function (e) {
+    console.log('e.target', e.target);
+    // if (e.target === self.elem || (e.target.parentNode && e.target.parentNode === self.elem) || (e.target.parentNode.parentNode && e.target.parentNode.parentNode === self.elem)) {
+    if (typeof e.stopPropagation !== 'undefined') {
+        e.stopPropagation();
+    } else {
+        e.cancelBubble = true;
+    }
+    e.preventDefault();
+    // self.pointerDown(e);
+    if (isRunning) {
+        stop();
+    } else {
+        requestAnimationFrame(render);
+        isRunning = true;
+    }
+    // }
+}, false);
 
 
 
