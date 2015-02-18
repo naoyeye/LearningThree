@@ -1,5 +1,13 @@
 /*global THREE , requestAnimationFrame, Stats, cancelAnimationFrame*/
 
+/*
+* @Author: Jiyun
+* @Date:   2015-02-16 14:14:02
+* @Last Modified by:   Jiyun
+* @Last Modified time: 2015-02-18 13:53:38
+*/
+
+
 // var scene = new THREE.Scene();
 // var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
